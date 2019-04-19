@@ -20,44 +20,60 @@ RESET       mov.w   #__STACK_END,SP         ; Initialize stackpointer
 StopWDT     mov.w   #WDTPW|WDTHOLD,&WDTCTL  ; Stop watchdog timer
 
 
-;----------------------------------------------------------------------------
+;-------------------------------------------------------------------------------
 ; Main loop here
-;----------------------------------------------------------------------------
-;Alunos: Sofia Catharina Disegna - 160018226
-;	 Vinicius Marconcini de Souza Leite - 150166419			
+;-------------------------------------------------------------------------------
 
-			mov 	#vetor,R5               ;incializar R5 com o endereço do vetor
-			call 	#ORDENA                 ;chamar subrotina
-			jmp 	$                       ;travar execução
-			nop 	                        ;exigido pelo montador
+tempo0		.equ 65535
+tempo1		.equ 131070
+tempo2		.equ 262140
+tempo3 		.equ 524280
+			call	#main
+			jmp	$
 
-ORDENA:		mov.b   @R5+,R4                  ;Criamos o contador R4
-            mov.b   R4, R6                 ;Precisaremos novamente saber o valor do tamanho do vetor, então vamos guardá-lo
-         		                            ;em dois registradores, que serão decrementados em momentos diferentes
-outerLoop:  mov     R5, R7					;Também precisamos guardar o endereço da primeira letra
-			mov.b	R4, R6
-            
-innerLoop:  cmp.b   @R5, 0(R7)
-            jge     fimInLoop
-            mov.b   @R7, R9
-            mov.b   @R5, 0(R7)
-            mov.b   R9, 0(R5)
-fimInLoop:  cmp.b	@R5, -1(R5)				;Evita que sejam feitas repetições desnecessárias do loop
-            jeq		fimOutLoop
-			inc		R7
-            dec		R6
-            jnz 	innerLoop
-            jmp		fimOutLoop
-            nop
-fimOutLoop:	inc 	R5
-			dec 	R4
-			jnz 	outerLoop
-			ret
+main: 		bis.b	#BIT0, &P1DIR
+			bis.b	#BIT0, &P1OUT
+			bis.b	#BIT7, &P4DIR
+			bic.b	#BIT7, &P4OUT
+			bic.b	#BIT1, &P1DIR
+			bis.b	#BIT1, &P1REN
+			bis.b 	#BIT1, &P1OUT
+			mov.b	#0x00, R5
+loop:		xor.b	#0x01, &P1OUT
+			xor.b	#BIT7, &P4OUT
+			bit.b	#0x02, &P1IN
+			jz		incCont
+			jmp		gastartemp
 
+gastartemp: cmp.b #0,R5
+			jne	caso1
+			mov #tempo0, R4
+			jmp looptempo
+caso1:		cmp.b #1,R5
+			jne caso2
+			mov #tempo1, R4
+			jmp looptempo
+caso2:		cmp.b #2,R5
+			jne caso3
+			mov #tempo2, R4
+			jmp looptempo
+caso3:		cmp.b #3,R5
+			jne gastartemp
+			mov #tempo1, R4
+			jmp looptempo
+looptempo:	dec R4
+			jnz looptempo
+			jmp loop
+			nop
+                                            
+incCont: inc  	R5
+	     cmp.b	#4,R5
+	     jge ZeroR5
+	     jmp gastartemp
 
-
-			.data                           ; Declarar vetor com a concatenação dos nomes completos da equipe
-vetor:		.byte 51, "sofiacatharinadisegnaviniciusmarconcinidesouzaleite"
+ZeroR5:	 mov.b #0, R5
+		 jmp gastartemp
+		 nop
 ;-------------------------------------------------------------------------------
 ; Stack Pointer definition
 ;-------------------------------------------------------------------------------
