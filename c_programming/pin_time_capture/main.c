@@ -1,3 +1,6 @@
+/**
+ * Distance measurements
+ */
 #include <msp430.h>
 
 int long t1 = 0;

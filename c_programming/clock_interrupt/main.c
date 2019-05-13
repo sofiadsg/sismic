@@ -1,4 +1,8 @@
-
+/**
+* Program to measure distances using a ultrassonic distance sensor. Lights green and red led for 
+* distances smaller than 20cm, red for smaller than 40cm and greater than 20cm and green for 
+* greater than 40cm
+*/
 #include <msp430.h>
 
 #define TA0_CCR0_INT 53
@@ -8,9 +12,7 @@ __interrupt void TA0_CCR0_ISR()
 {
     P4OUT ^= BIT7;
 }
-/**
- * main.c
- */
+
 int main(void)
 {
     __enable_interrupt();

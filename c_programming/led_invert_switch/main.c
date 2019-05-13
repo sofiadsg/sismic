@@ -1,5 +1,6 @@
 /**
- * Inverts red LED state when S1 or S2 are pressed
+ * Inverts red LED state when S1 or S2 are pressed. Not fully working
+ * TODO: fix this whole thing
  */
 #include <msp430.h> 
 

@@ -1,5 +1,5 @@
 /**
- * Blinking LED without a timer
+ * Blinking LED without a timer, using a while loop to spend time
  */
 #include <msp430.h> 
 

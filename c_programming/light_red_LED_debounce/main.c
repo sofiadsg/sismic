@@ -1,5 +1,5 @@
 /**
- * Lights LED when S1 is pressed
+ * Lights LED when S1 is pressed, using debouncer loop for precision
  */
 #include <msp430.h> 
 

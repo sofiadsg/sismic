@@ -1,0 +1,15 @@
+﻿#define TA0_CCRN_INT 52 // ISR das interrupções dos canais 1, 2, 3, 4 e
+... // overflow
+#pragma vector=TA0_CCRN_INT
+__interrupt void P1ISR() { //
+switch (TA0IV) { // A leitura de TA0IV limpa a flag correspondente
+case 0x0: break; // Não houve interrupção
+case 0x2: break; // TA0.1 (maior prioridade)
+case 0x4: // TA0.2
+P1OUT ^= BIT0; //
+break;
+... // ...
+case 0xE: break; // Overflow (menor prioridade)
+default: break;
+}
+}

@@ -1,9 +1,10 @@
+/**
+ * Program that uses timer polling to toggle led 
+*/
+
+
 #include <msp430.h> 
 
-
-/**
- * main.c
- */
 int main(void)
 {
     WDTCTL = WDTPW | WDTHOLD;
