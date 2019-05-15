@@ -3,6 +3,7 @@
  *  red led @5kHz) using two timer instances.
  */
 
+
 #include <msp430.h>
 
 #define TA0_CCR0_INT 53
@@ -13,10 +14,11 @@ __interrupt void TA0_CCR0_ISR()
     P4OUT ^= BIT7;
 }
 
-#pragma vector=TIMERB0_VECTOR
-__interrupt void TIMERB0_ISR (void)
+#pragma vector=TIMER0_B0_VECTOR
+__interrupt void TIMER0_B0_VECTOR_ISR (void)
 {
     P1OUT ^= BIT0; // Timer overflow
+    TB0R = 0;
 
 }
 
@@ -28,13 +30,13 @@ int main(void)
     P1DIR |= BIT0;
     P1OUT |= BIT0;
 
-    TA0CCR0 = 16379;
+    TA0CCR0 = 8192 - 1;
     TA0CCTL0 = CCIE;
     TA0CTL = TASSEL__ACLK|MC__UP|TACLR;
 
-    TBCCTL0 = CCIE;
-    TBCTL = TBSSEL__ACLK|MC__UP|TBCLR|TBIE;
-    TBCCR0 = 6552 - 1;
+    TB0CCTL0 = CCIE;
+    TB0CTL = TBSSEL_1|MC_2|TBCLR|TBIE;
+    TB0CCR0 = 3268 - 1;
 
 
     __enable_interrupt();
