@@ -28,10 +28,8 @@ int main(void) {
 
     while(1){
         PCF_write(0b00001000);
-          // ligar Back Light
         delay(1000);
         PCF_write(0);
-        // Desligar Back Light
         delay(1000);
     }
 }
