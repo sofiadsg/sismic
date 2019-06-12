@@ -119,7 +119,6 @@ void LCD_inic(void){
 
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;
-    TB0CTL = TBSSEL__ACLK|MC__STOP|ID_2|TBCLR|TBIE;
     config_I2C();
     LCD_inic();
     int i = 45;
@@ -141,15 +140,6 @@ void delay(long limite){
     volatile long cont=0;
     while (cont++ < limite) ;
 }
-
-//void delay(int time) //delays time up to 4s, time is in ms
-//{
-//    TB0CTL |= MC__UP;
-//    TB0CCR0 = time*16.384 - 1;
-//    while(!(TB0CCTL0 & CCIFG));
-//    TB0CCTL0 &= ~CCIFG;
-//    TB0CTL |= MC__STOP|TBCLR;
-//}
 
 
 void PCF_write(char dado)
