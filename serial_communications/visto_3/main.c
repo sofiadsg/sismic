@@ -29,7 +29,8 @@
 int PCF_read(void);
 void PCF_write(char dado);
 void delay(long limite);
-int adc;
+int count = 0, rightcount=0;
+float adcX, adcY, avX = 0, avY = 0, voltX, voltY;
 void lcdChar(char c)
 {
     int mostSignificantNibble = 0;
@@ -82,8 +83,6 @@ void lcdHex8(char c)
 
 void lcdHex16(unsigned int x)
 {
-    lcdChar('0');
-    lcdChar('x');
     int firstNumber = 0;
     int secondNumber = 0;
     int thirdNumber = 0;
@@ -317,23 +316,56 @@ void lcdCursor(char lin, char col)
     PCF_write(leastSignificantNibble|0b00001000);
 }
 void config_adc(void)
-{   ADC12CTL0 &= ~ADC12ENC; //Desabilitar para configurar
-    ADC12CTL0 = ADC12SHT0_3 | //ADC tempo amostragem ADCMEM[0-7]
-                ADC12ON;
+{
+    ADC12CTL0  &= ~ADC12ENC;
 
-    ADC12CTL1 = ADC12CSTARTADD_0 |
-            ADC12SHS_0|
-            ADC12SHP|
-            ADC12DIV_0|
-            ADC12SSEL_3|
-            ADC12CONSEQ_0;
-    ADC12CTL2 = ADC12TCOFF | // Desligar sensor temperatura
-            ADC12RES_2; // Resolução 12-bit
-    ADC12MCTL0 = ADC12EOS| //Fim de sequência
-            ADC12SREF_0| //VR+ = AVCC e VR- = AVSS
-            ADC12INCH_0;
-    P6SEL |= BIT0;
-    ADC12CTL0 |= ADC12ENC;
+    ADC12CTL0 = ADC12SHT0_3 |
+                ADC12MSC    |       //Uma conversão imediatamente após a outra
+                ADC12ON;            //Ligar ADC
+
+    ADC12CTL1 = ADC12CSTARTADD_0 |  //Resultado em ADC12MEM0
+            ADC12SHS_1       |  // Selecionar TA0.1
+            ADC12SHP         |  // S/H usar timer
+            ADC12DIV_0       |  //Clock ADC Divisor = 1
+            ADC12SSEL_3      |  //Clock ADC = SMCLK
+            ADC12CONSEQ_3;      //Modo Sequência de canais repetido
+
+    ADC12CTL2 = ADC12TCOFF |        // Desligar sensor temperatura
+            ADC12RES_2;         // Resolução 12-bit
+
+    ADC12MCTL0 = ADC12SREF_0 |      //VR+ = AVCC e VR- = AVSS
+             ADC12INCH_0;       //(P6.0) Canal Y
+    ADC12MCTL1 = ADC12EOS    |      //Fim de sequência
+             ADC12SREF_0 |      //VR+ = AVCC e VR- = AVSS
+             ADC12INCH_1;       //(P6.1) Canal Y
+
+    ADC12IE |= ADC12IE0;
+    ADC12IE |= ADC12IE1;
+
+
+    ADC12CTL0 |= ADC12ENC;          //Habilitar ADC12
+
+    P6SEL |= BIT0;          // Direção X
+    P6SEL |= BIT1;          // Direção Y
+}
+
+void update_lcd()
+{
+    lcdCursor(0,4);
+    voltX = avX*3.3/4096;
+    voltY = avY*3.3/4096;
+    lcdFloat1(voltX);
+    delay(100);
+    lcdCursor(1,4);
+    lcdFloat1(voltY);
+    delay(100);
+    lcdCursor(0,12);
+    lcdHex16(avX);
+    delay(100);
+    lcdCursor(1,12);
+    lcdHex16(avY);
+    delay(10000);
+    P1OUT ^= BIT0;
 }
 
 int main(void) {
@@ -341,27 +373,48 @@ int main(void) {
 
     WDTCTL = WDTPW | WDTHOLD;
     TB0CTL = TBSSEL_1|MC_2|TBCLR;
+    P1DIR |= BIT0;
+    P1OUT |= BIT0;
     TB0CCR0 = 16300;
     config_I2C();
     LCD_inic();
     config_adc();
-    TA0CCR0 = 32760;
-    TA0CCTL0 = CCIE;
-    TA0CTL = TASSEL__ACLK|MC__UP|TACLR;
-//__enable_interrupt();
+    TA0CTL = TASSEL__ACLK | MC_1;
+    TA0CCTL1 = OUTMOD_6;
+    TA0CCR0 = 32767;
+    TA0CCR1 = TA0CCR0/2;
+    ADC12CTL0 |= ADC12ENC;
+    lcdChar('A');
+    lcdChar('0');
+    lcdChar(':');
+    lcdCursor(1,0);
+    lcdChar('A');
+    lcdChar('1');
+    lcdChar(':');
+    //__enable_interrupt();
     while(1)
     {
-        while(!(TA0CCTL0 & CCIFG));
-        TA0CCTL0 &= ~CCIFG;
-        ADC12CTL0 &= ~ADC12SC;
-        ADC12CTL0 |= ADC12SC;
-        ADC12CTL0 &= ~ADC12SC;
-        while ( (ADC12IFG&ADC12IFG0) == 0);
-        adc = ADC12MEM0;
-        lcdCursor(0,0);
-        delay(10000);
+        while ((ADC12IFG & ADC12IFG0) == 0);     //Esperar conversão
+        while ((ADC12IFG & ADC12IFG1) == 0);
+        if(count%512 == 0)
+        {
+            adcX = ADC12MEM0;
+            adcY = ADC12MEM1;
+            avX += adcX/8;
+            avY += adcY/8;
+            ADC12IFG &= ~ADC12IFG0;
+            ADC12IFG &= ~ADC12IFG1;
 
-        lcdDec16(adc);
+        }
+        count++;
+        rightcount = count/512;
+        if(rightcount == 8)
+        {
+            update_lcd();
+            count = 0;
+            avX = 0;
+            avY = 0;
+        }
     }
 
     return 0;
@@ -405,3 +458,4 @@ int PCF_read(void)
     delay(50);
     return dado;
 }
+

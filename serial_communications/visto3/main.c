@@ -26,10 +26,31 @@
 #define BIT_D6 BIT6
 #define BIT_D7 BIT7
 
-int PCF_read(void);
-void PCF_write(char dado);
-void delay(long limite);
-int adc;
+int channelX, channelY;
+
+void delay(long limite){
+    volatile long cont=0;
+    while (cont++ < limite) ;
+}
+
+void PCF_write(char dado)
+{
+    UCB0I2CSA = PCF;
+    UCB0CTL1 |= UCTR |
+            UCTXSTT;
+    while ( (UCB0IFG & UCTXIFG) == 0);
+    if ( (UCB0IFG & UCNACKIFG) == UCNACKIFG)
+    {
+        P1OUT |= BIT0;
+        while(1);
+    }
+    UCB0TXBUF = dado;
+    while ( (UCB0IFG & UCTXIFG) == 0);
+    UCB0CTL1 |= UCTXSTP;
+    while ( (UCB0CTL1 & UCTXSTP) == UCTXSTP);
+    delay(50);
+}
+
 void lcdChar(char c)
 {
     int mostSignificantNibble = 0;
@@ -316,81 +337,6 @@ void lcdCursor(char lin, char col)
     PCF_write(leastSignificantNibble|0b00001100);
     PCF_write(leastSignificantNibble|0b00001000);
 }
-void config_adc(void)
-{   ADC12CTL0 &= ~ADC12ENC; //Desabilitar para configurar
-    ADC12CTL0 = ADC12SHT0_3 | //ADC tempo amostragem ADCMEM[0-7]
-                ADC12ON;
-
-    ADC12CTL1 = ADC12CSTARTADD_0 |
-            ADC12SHS_0|
-            ADC12SHP|
-            ADC12DIV_0|
-            ADC12SSEL_3|
-            ADC12CONSEQ_0;
-    ADC12CTL2 = ADC12TCOFF | // Desligar sensor temperatura
-            ADC12RES_2; // Resolução 12-bit
-    ADC12MCTL0 = ADC12EOS| //Fim de sequência
-            ADC12SREF_0| //VR+ = AVCC e VR- = AVSS
-            ADC12INCH_0;
-    P6SEL |= BIT0;
-    ADC12CTL0 |= ADC12ENC;
-}
-
-int main(void) {
-
-
-    WDTCTL = WDTPW | WDTHOLD;
-    TB0CTL = TBSSEL_1|MC_2|TBCLR;
-    TB0CCR0 = 16300;
-    config_I2C();
-    LCD_inic();
-    config_adc();
-    TA0CCR0 = 32760;
-    TA0CCTL0 = CCIE;
-    TA0CTL = TASSEL__ACLK|MC__UP|TACLR;
-//__enable_interrupt();
-    while(1)
-    {
-        while(!(TA0CCTL0 & CCIFG));
-        TA0CCTL0 &= ~CCIFG;
-        ADC12CTL0 &= ~ADC12SC;
-        ADC12CTL0 |= ADC12SC;
-        ADC12CTL0 &= ~ADC12SC;
-        while ( (ADC12IFG&ADC12IFG0) == 0);
-        adc = ADC12MEM0;
-        lcdCursor(0,0);
-        delay(10000);
-
-        lcdDec16(adc);
-    }
-
-    return 0;
-}
-
-void delay(long limite){
-    volatile long cont=0;
-    while (cont++ < limite) ;
-}
-
-
-void PCF_write(char dado)
-{
-    UCB0I2CSA = PCF;
-    UCB0CTL1 |= UCTR |
-            UCTXSTT;
-    while ( (UCB0IFG & UCTXIFG) == 0);
-    if ( (UCB0IFG & UCNACKIFG) == UCNACKIFG)
-    {
-        P1OUT |= BIT0;
-        while(1);
-    }
-    UCB0TXBUF = dado;
-    while ( (UCB0IFG & UCTXIFG) == 0);
-    UCB0CTL1 |= UCTXSTP;
-    while ( (UCB0CTL1 & UCTXSTP) == UCTXSTP);
-    delay(50);
-}
-
 
 int PCF_read(void)
 {
@@ -404,4 +350,41 @@ int PCF_read(void)
     dado=UCB0RXBUF;
     delay(50);
     return dado;
+}
+
+#pragma vector = 54
+__interrupt void ADC(void)
+{
+
+    channelX = ADC12MEM0;
+    channelY = ADC12MEM1;
+
+    ADC12IFG &= ~ADC12IFG0;
+    ADC12IFG &= ~ADC12IFG1;
+}
+
+int main(void) {
+    WDTCTL = WDTPW | WDTHOLD;
+    TB0CTL = TBSSEL_1|MC_2|TBCLR;
+    TB0CCR0 = 32766;
+    ADC12CTL0  &= ~ADC12ENC;
+    ADC12CTL0 = ADC12SHT0_3|ADC12MSC|ADC12ON;
+    ADC12CTL1 = ADC12CSTARTADD_0|ADC12SHS_1|ADC12SHP|ADC12DIV_0|ADC12SSEL_3|ADC12CONSEQ_3;
+    ADC12CTL2 = ADC12TCOFF|ADC12RES_2;
+    ADC12MCTL0 = ADC12SREF_0|ADC12INCH_0;
+    ADC12MCTL1 = ADC12EOS|ADC12SREF_0|ADC12INCH_1;
+    ADC12IE |= ADC12IE0;
+    ADC12IE |= ADC12IE1;
+    ADC12CTL0|= ADC12ENC;
+    P6SEL |= BIT0;
+    P6SEL |= BIT1;
+    config_I2C();
+    LCD_inic();
+    __enable_interrupt();
+    while(1)
+    {
+        lcdHex16(channelX/1239.4);
+        delay(1000000);
+        clearAndReturnHome();
+    }
 }
